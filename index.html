@@ -40,7 +40,7 @@
                     </button>
                 </div>
                 <div class="flex space-x-2">
-                    <button onclick="createEvent()" class="flex-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    <button onclick="createNewEvent()" class="flex-1 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                         Créer l'événement
                     </button>
                     <button onclick="cancelEventCreation()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
@@ -226,7 +226,7 @@
             button.parentElement.remove();
         }
 
-        async function createEvent() {
+        async function createNewEvent() {
             const title = document.getElementById('eventTitle').value.trim();
             if (!title) {
                 alert('Veuillez entrer un titre pour l\'événement');
