@@ -92,6 +92,7 @@
         const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa';
         const TEMPLATE_BIN_ID = '6798e856ad19ca34f8f5d627';
         const BIN_URL = 'https://api.jsonbin.io/v3/b';
+        const CREATE_URL = 'https://api.jsonbin.io/v3/b/create';
         let eventData = {
             title: '',
             dates: [],
@@ -215,11 +216,14 @@
 
             try {
                 toggleLoading(true);
-                const response = await fetch(`${BIN_URL}/${TEMPLATE_BIN_ID}/copy`, {
+                const response = await fetch(CREATE_URL, {
                     method: 'POST',
                     headers: {
-                        'X-Master-Key': API_KEY
-                    }
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY,
+                        'X-Bin-Private': true,
+                    },
+                    body: JSON.stringify(eventData)
                 });
 
                 if (!response.ok) {
