@@ -21,7 +21,7 @@
                     <label class="block text-sm font-medium text-gray-700">Dates proposées</label>
                     <div id="datesList" class="space-y-2">
                         <div class="flex space-x-2">
-                            <input type="datetime-local" class="dateInput mt-1 block rounded-md border-gray-300 shadow-sm p-2 border">
+                            <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
                             <button onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
                         </div>
                     </div>
@@ -62,10 +62,26 @@
     </div>
 
     <script>
+        // Initialisation des données de l'événement
         let eventData = {
             title: '',
             dates: [],
             participants: []
+        };
+
+        // Charger les données depuis le localStorage au chargement de la page
+        window.onload = function() {
+            const savedEventData = localStorage.getItem('eventData');
+            if (savedEventData) {
+                eventData = JSON.parse(savedEventData);
+                updateResults();
+                if (eventData.title) {
+                    document.getElementById('eventCreation').classList.add('hidden');
+                    document.getElementById('participation').classList.remove('hidden');
+                    document.getElementById('eventTitleDisplay').textContent = eventData.title;
+                    updateDatesSelection();
+                }
+            }
         };
 
         function addDateInput() {
@@ -73,7 +89,7 @@
             const newDateInput = document.createElement('div');
             newDateInput.className = 'flex space-x-2';
             newDateInput.innerHTML = `
-                <input type="datetime-local" class="dateInput mt-1 block rounded-md border-gray-300 shadow-sm p-2 border">
+                <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
                 <button onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
             `;
             datesList.appendChild(newDateInput);
@@ -84,7 +100,7 @@
         }
 
         function createEvent() {
-            const title = document.getElementById('eventTitle').value;
+            const title = document.getElementById('eventTitle').value.trim();
             if (!title) {
                 alert('Veuillez entrer un titre pour l\'événement');
                 return;
@@ -106,14 +122,20 @@
                 participants: []
             };
 
-            // Afficher la section participation
+            // Sauvegarder dans localStorage
+            localStorage.setItem('eventData', JSON.stringify(eventData));
+
+            // Mettre à jour l'interface
             document.getElementById('eventCreation').classList.add('hidden');
             document.getElementById('participation').classList.remove('hidden');
             document.getElementById('eventTitleDisplay').textContent = title;
+            updateDatesSelection();
+            updateResults();
+        }
 
-            // Générer les options de dates
+        function updateDatesSelection() {
             const datesSelection = document.getElementById('datesSelection');
-            datesSelection.innerHTML = dates.map((date, index) => `
+            datesSelection.innerHTML = eventData.dates.map((date, index) => `
                 <div class="flex items-center space-x-2">
                     <input type="checkbox" id="date${index}" class="dateCheckbox">
                     <label for="date${index}" class="text-sm text-gray-700">
@@ -121,12 +143,10 @@
                     </label>
                 </div>
             `).join('');
-
-            updateResults();
         }
 
         function submitParticipation() {
-            const name = document.getElementById('participantName').value;
+            const name = document.getElementById('participantName').value.trim();
             if (!name) {
                 alert('Veuillez entrer votre nom');
                 return;
@@ -142,10 +162,21 @@
                 return;
             }
 
-            eventData.participants.push({
-                name: name,
-                availableDates: selectedDates
-            });
+            // Vérifier si le participant existe déjà
+            const existingParticipantIndex = eventData.participants.findIndex(p => p.name === name);
+            if (existingParticipantIndex !== -1) {
+                // Mettre à jour les dates du participant existant
+                eventData.participants[existingParticipantIndex].availableDates = selectedDates;
+            } else {
+                // Ajouter un nouveau participant
+                eventData.participants.push({
+                    name: name,
+                    availableDates: selectedDates
+                });
+            }
+
+            // Sauvegarder dans localStorage
+            localStorage.setItem('eventData', JSON.stringify(eventData));
 
             // Réinitialiser le formulaire
             document.getElementById('participantName').value = '';
@@ -180,7 +211,7 @@
                 <h3 class="font-bold text-lg">${eventData.title}</h3>
                 <div class="space-y-2">
                     ${dateResults.map(result => `
-                        <div class="border p-4 rounded ${result.count === maxParticipants ? 'bg-green-50' : ''}">
+                        <div class="border p-4 rounded ${result.count === maxParticipants && maxParticipants > 0 ? 'bg-green-50' : ''}">
                             <div class="flex justify-between items-center">
                                 <span class="font-medium">${new Date(result.date).toLocaleString('fr-FR')}</span>
                                 <span class="bg-blue-500 text-white px-2 py-1 rounded">${result.count} participant(s)</span>
@@ -191,7 +222,31 @@
                         </div>
                     `).join('')}
                 </div>
+                <button onclick="resetEvent()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                    Réinitialiser l'événement
+                </button>
             `;
+        }
+
+        function resetEvent() {
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser l\'événement ? Toutes les données seront perdues.')) {
+                localStorage.removeItem('eventData');
+                eventData = {
+                    title: '',
+                    dates: [],
+                    participants: []
+                };
+                document.getElementById('eventCreation').classList.remove('hidden');
+                document.getElementById('participation').classList.add('hidden');
+                document.getElementById('eventTitle').value = '';
+                document.getElementById('datesList').innerHTML = `
+                    <div class="flex space-x-2">
+                        <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        <button onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
+                    </div>
+                `;
+                updateResults();
+            }
         }
     </script>
 </body>
