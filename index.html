@@ -21,14 +21,14 @@
                     <div id="datesList" class="space-y-2">
                         <div class="flex space-x-2">
                             <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                            <button type="button" onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
+                            <button type="button" class="removeDateBtn bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
                         </div>
                     </div>
-                    <button type="button" onclick="addDateInput()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    <button type="button" id="addDateBtn" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                         Ajouter une date
                     </button>
                 </div>
-                <button type="button" onclick="createEventPlanner()" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                <button type="button" id="createEventBtn" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
                     Créer l'événement
                 </button>
             </div>
@@ -51,7 +51,7 @@
                 <div id="datesSelection" class="space-y-2">
                     <!-- Les dates seront ajoutées ici dynamiquement -->
                 </div>
-                <button type="button" onclick="submitParticipation()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                <button type="button" id="submitParticipationBtn" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                     Valider ma participation
                 </button>
             </div>
@@ -74,8 +74,8 @@
     </div>
 
     <script>
-        // ⚠️ Remplacez cette clé par votre clé API JSONBin.io
-const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; // Trouvée dans votre profil JSONBin.io -> API Keys -> $MASTER_KEY
+        const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa';
+        const TEMPLATE_BIN_ID = '6798e856ad19ca34f8f5d627';
         const BIN_URL = 'https://api.jsonbin.io/v3/b';
         let eventData = {
             title: '',
@@ -89,8 +89,8 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
             document.getElementById('loading').classList.toggle('hidden', !show);
         }
 
-        // Vérifier si on a un ID d'événement dans l'URL
-        window.onload = async function() {
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const eventId = urlParams.get('id');
             
@@ -99,7 +99,19 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
             } else {
                 document.getElementById('eventCreation').classList.remove('hidden');
             }
-        };
+
+            // Event Listeners
+            document.getElementById('addDateBtn').addEventListener('click', addDateInput);
+            document.getElementById('createEventBtn').addEventListener('click', createEventPlanner);
+            document.getElementById('submitParticipationBtn').addEventListener('click', submitParticipation);
+            
+            // Event delegation pour les boutons de suppression de date
+            document.getElementById('datesList').addEventListener('click', (e) => {
+                if (e.target.classList.contains('removeDateBtn')) {
+                    removeDateInput(e.target);
+                }
+            });
+        });
 
         async function loadEvent(binId) {
             try {
@@ -122,7 +134,6 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
                 document.getElementById('participation').classList.remove('hidden');
                 document.getElementById('eventTitleDisplay').textContent = eventData.title;
                 
-                // Mettre à jour le lien de partage
                 const shareUrl = `${window.location.origin}${window.location.pathname}?id=${binId}`;
                 document.getElementById('shareLink').value = shareUrl;
                 
@@ -167,13 +178,13 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
             newDateInput.className = 'flex space-x-2';
             newDateInput.innerHTML = `
                 <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                <button type="button" onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
+                <button type="button" class="removeDateBtn bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
             `;
             datesList.appendChild(newDateInput);
         }
 
         function removeDateInput(button) {
-            button.parentElement.remove();
+            button.closest('.flex').remove();
         }
 
         async function createEventPlanner() {
@@ -201,7 +212,6 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
 
             try {
                 toggleLoading(true);
-                // Créer un nouveau bin
                 const response = await fetch(`${BIN_URL}/${TEMPLATE_BIN_ID}/copy`, {
                     method: 'POST',
                     headers: {
@@ -216,7 +226,6 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
                 const copyData = await response.json();
                 currentBinId = copyData.metadata.id;
                 
-                // Mettre à jour le contenu du nouveau bin
                 const updateResponse = await fetch(`${BIN_URL}/${currentBinId}`, {
                     method: 'PUT',
                     headers: {
@@ -225,20 +234,18 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
                     },
                     body: JSON.stringify(eventData)
                 });
-                
+
                 if (!updateResponse.ok) {
                     throw new Error('Impossible de mettre à jour l\'événement');
+                }
 
-                // Mettre à jour l'URL avec l'ID de l'événement
                 const newUrl = `${window.location.pathname}?id=${currentBinId}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
 
-                // Mettre à jour l'interface
                 document.getElementById('eventCreation').classList.add('hidden');
                 document.getElementById('participation').classList.remove('hidden');
                 document.getElementById('eventTitleDisplay').textContent = title;
                 
-                // Mettre à jour le lien de partage
                 const shareUrl = `${window.location.origin}${window.location.pathname}?id=${currentBinId}`;
                 document.getElementById('shareLink').value = shareUrl;
                 
@@ -281,23 +288,18 @@ const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; 
                 return;
             }
 
-            // Vérifier si le participant existe déjà
             const existingParticipantIndex = eventData.participants.findIndex(p => p.name === name);
             if (existingParticipantIndex !== -1) {
-                // Mettre à jour les dates du participant existant
                 eventData.participants[existingParticipantIndex].availableDates = selectedDates;
             } else {
-                // Ajouter un nouveau participant
                 eventData.participants.push({
                     name: name,
                     availableDates: selectedDates
                 });
             }
 
-            // Mettre à jour l'événement sur le serveur
             await updateEvent();
 
-            // Réinitialiser le formulaire
             document.getElementById('participantName').value = '';
             dateCheckboxes.forEach(checkbox => checkbox.checked = false);
 
