@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur d'événements</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash/4.17.21/lodash.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Création d'événement -->
+        <div id="eventCreation" class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">Créer un événement</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Titre de l'événement</label>
+                    <input type="text" id="eventTitle" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Dates proposées</label>
+                    <div id="datesList" class="space-y-2">
+                        <div class="flex space-x-2">
+                            <input type="datetime-local" class="dateInput mt-1 block rounded-md border-gray-300 shadow-sm p-2 border">
+                            <button onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
+                        </div>
+                    </div>
+                    <button onclick="addDateInput()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Ajouter une date
+                    </button>
+                </div>
+                <button onclick="createEvent()" class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Créer l'événement
+                </button>
+            </div>
+        </div>
+
+        <!-- Participation -->
+        <div id="participation" class="bg-white rounded-lg shadow p-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Participer à l'événement: <span id="eventTitleDisplay"></span></h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Votre nom</label>
+                    <input type="text" id="participantName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                </div>
+                <div id="datesSelection" class="space-y-2">
+                    <!-- Les dates seront ajoutées ici dynamiquement -->
+                </div>
+                <button onclick="submitParticipation()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Valider ma participation
+                </button>
+            </div>
+        </div>
+
+        <!-- Résultats -->
+        <div id="results" class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-2xl font-bold mb-4">Résultats</h2>
+            <div id="resultsContent" class="space-y-4">
+                <!-- Les résultats seront affichés ici -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventData = {
+            title: '',
+            dates: [],
+            participants: []
+        };
+
+        function addDateInput() {
+            const datesList = document.getElementById('datesList');
+            const newDateInput = document.createElement('div');
+            newDateInput.className = 'flex space-x-2';
+            newDateInput.innerHTML = `
+                <input type="datetime-local" class="dateInput mt-1 block rounded-md border-gray-300 shadow-sm p-2 border">
+                <button onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
+            `;
+            datesList.appendChild(newDateInput);
+        }
+
+        function removeDateInput(button) {
+            button.parentElement.remove();
+        }
+
+        function createEvent() {
+            const title = document.getElementById('eventTitle').value;
+            if (!title) {
+                alert('Veuillez entrer un titre pour l\'événement');
+                return;
+            }
+
+            const dateInputs = document.querySelectorAll('.dateInput');
+            const dates = Array.from(dateInputs)
+                .map(input => input.value)
+                .filter(date => date);
+
+            if (dates.length === 0) {
+                alert('Veuillez ajouter au moins une date');
+                return;
+            }
+
+            eventData = {
+                title: title,
+                dates: dates,
+                participants: []
+            };
+
+            // Afficher la section participation
+            document.getElementById('eventCreation').classList.add('hidden');
+            document.getElementById('participation').classList.remove('hidden');
+            document.getElementById('eventTitleDisplay').textContent = title;
+
+            // Générer les options de dates
+            const datesSelection = document.getElementById('datesSelection');
+            datesSelection.innerHTML = dates.map((date, index) => `
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="date${index}" class="dateCheckbox">
+                    <label for="date${index}" class="text-sm text-gray-700">
+                        ${new Date(date).toLocaleString('fr-FR')}
+                    </label>
+                </div>
+            `).join('');
+
+            updateResults();
+        }
+
+        function submitParticipation() {
+            const name = document.getElementById('participantName').value;
+            if (!name) {
+                alert('Veuillez entrer votre nom');
+                return;
+            }
+
+            const dateCheckboxes = document.querySelectorAll('.dateCheckbox');
+            const selectedDates = Array.from(dateCheckboxes)
+                .map((checkbox, index) => checkbox.checked ? eventData.dates[index] : null)
+                .filter(date => date !== null);
+
+            if (selectedDates.length === 0) {
+                alert('Veuillez sélectionner au moins une date');
+                return;
+            }
+
+            eventData.participants.push({
+                name: name,
+                availableDates: selectedDates
+            });
+
+            // Réinitialiser le formulaire
+            document.getElementById('participantName').value = '';
+            dateCheckboxes.forEach(checkbox => checkbox.checked = false);
+
+            updateResults();
+        }
+
+        function updateResults() {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            if (!eventData.dates.length) {
+                resultsContent.innerHTML = '<p class="text-gray-500">Aucun événement créé</p>';
+                return;
+            }
+
+            const dateResults = eventData.dates.map(date => {
+                const availableParticipants = eventData.participants.filter(p => 
+                    p.availableDates.includes(date)
+                );
+
+                return {
+                    date: date,
+                    count: availableParticipants.length,
+                    participants: availableParticipants.map(p => p.name)
+                };
+            });
+
+            const maxParticipants = Math.max(...dateResults.map(r => r.count));
+            
+            resultsContent.innerHTML = `
+                <h3 class="font-bold text-lg">${eventData.title}</h3>
+                <div class="space-y-2">
+                    ${dateResults.map(result => `
+                        <div class="border p-4 rounded ${result.count === maxParticipants ? 'bg-green-50' : ''}">
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium">${new Date(result.date).toLocaleString('fr-FR')}</span>
+                                <span class="bg-blue-500 text-white px-2 py-1 rounded">${result.count} participant(s)</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">
+                                ${result.participants.join(', ') || 'Aucun participant'}
+                            </p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
