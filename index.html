@@ -37,6 +37,12 @@
         <!-- Participation -->
         <div id="participation" class="bg-white rounded-lg shadow p-6 hidden">
             <h2 class="text-2xl font-bold mb-4">Participer à l'événement: <span id="eventTitleDisplay"></span></h2>
+            <div class="mb-4">
+                <div class="bg-blue-50 p-4 rounded">
+                    <p class="text-sm">Partagez ce lien pour inviter d'autres participants :</p>
+                    <input type="text" id="shareLink" readonly class="mt-2 w-full p-2 border rounded bg-white" onclick="this.select()">
+                </div>
+            </div>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Votre nom</label>
@@ -58,30 +64,102 @@
                 <!-- Les résultats seront affichés ici -->
             </div>
         </div>
+
+        <!-- Loading -->
+        <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white p-4 rounded-lg">
+                <p class="text-lg">Chargement...</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Initialisation des données de l'événement
+        // ⚠️ Remplacez cette clé par votre clé API JSONBin.io
+const API_KEY = '$2a$10$dNs0s0w8j4KkrZKjmaozxOQiEv3SZVIneo2VYuuSYStzu8JyfYCKa'; // Trouvée dans votre profil JSONBin.io -> API Keys -> $MASTER_KEY
+        const BIN_URL = 'https://api.jsonbin.io/v3/b';
         let eventData = {
             title: '',
             dates: [],
             participants: []
         };
+        let currentBinId = null;
 
-        // Charger les données depuis le localStorage au chargement de la page
-        window.onload = function() {
-            const savedEventData = localStorage.getItem('eventData');
-            if (savedEventData) {
-                eventData = JSON.parse(savedEventData);
-                updateResults();
-                if (eventData.title) {
-                    document.getElementById('eventCreation').classList.add('hidden');
-                    document.getElementById('participation').classList.remove('hidden');
-                    document.getElementById('eventTitleDisplay').textContent = eventData.title;
-                    updateDatesSelection();
-                }
+        // Fonction pour montrer/cacher le loading
+        function toggleLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        // Vérifier si on a un ID d'événement dans l'URL
+        window.onload = async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const eventId = urlParams.get('id');
+            
+            if (eventId) {
+                await loadEvent(eventId);
+            } else {
+                document.getElementById('eventCreation').classList.remove('hidden');
             }
         };
+
+        async function loadEvent(binId) {
+            try {
+                toggleLoading(true);
+                const response = await fetch(`${BIN_URL}/${binId}`, {
+                    headers: {
+                        'X-Master-Key': API_KEY
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Impossible de charger l\'événement');
+                }
+
+                const data = await response.json();
+                eventData = data.record;
+                currentBinId = binId;
+
+                document.getElementById('eventCreation').classList.add('hidden');
+                document.getElementById('participation').classList.remove('hidden');
+                document.getElementById('eventTitleDisplay').textContent = eventData.title;
+                
+                // Mettre à jour le lien de partage
+                const shareUrl = `${window.location.origin}${window.location.pathname}?id=${binId}`;
+                document.getElementById('shareLink').value = shareUrl;
+                
+                updateDatesSelection();
+                updateResults();
+            } catch (error) {
+                alert('Erreur lors du chargement de l\'événement');
+                console.error(error);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        async function updateEvent() {
+            if (!currentBinId) return;
+
+            try {
+                toggleLoading(true);
+                const response = await fetch(`${BIN_URL}/${currentBinId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(eventData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Impossible de mettre à jour l\'événement');
+                }
+            } catch (error) {
+                alert('Erreur lors de la mise à jour de l\'événement');
+                console.error(error);
+            } finally {
+                toggleLoading(false);
+            }
+        }
 
         function addDateInput() {
             const datesList = document.getElementById('datesList');
@@ -98,7 +176,7 @@
             button.parentElement.remove();
         }
 
-        function createEventPlanner() {
+        async function createEventPlanner() {
             const title = document.getElementById('eventTitle').value.trim();
             if (!title) {
                 alert('Veuillez entrer un titre pour l\'événement');
@@ -121,15 +199,57 @@
                 participants: []
             };
 
-            // Sauvegarder dans localStorage
-            localStorage.setItem('eventData', JSON.stringify(eventData));
+            try {
+                toggleLoading(true);
+                // Créer un nouveau bin
+                const response = await fetch(`${BIN_URL}/${TEMPLATE_BIN_ID}/copy`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Master-Key': API_KEY
+                    }
+                });
 
-            // Mettre à jour l'interface
-            document.getElementById('eventCreation').classList.add('hidden');
-            document.getElementById('participation').classList.remove('hidden');
-            document.getElementById('eventTitleDisplay').textContent = title;
-            updateDatesSelection();
-            updateResults();
+                if (!response.ok) {
+                    throw new Error('Impossible de créer l\'événement');
+                }
+
+                const copyData = await response.json();
+                currentBinId = copyData.metadata.id;
+                
+                // Mettre à jour le contenu du nouveau bin
+                const updateResponse = await fetch(`${BIN_URL}/${currentBinId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(eventData)
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error('Impossible de mettre à jour l\'événement');
+
+                // Mettre à jour l'URL avec l'ID de l'événement
+                const newUrl = `${window.location.pathname}?id=${currentBinId}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+
+                // Mettre à jour l'interface
+                document.getElementById('eventCreation').classList.add('hidden');
+                document.getElementById('participation').classList.remove('hidden');
+                document.getElementById('eventTitleDisplay').textContent = title;
+                
+                // Mettre à jour le lien de partage
+                const shareUrl = `${window.location.origin}${window.location.pathname}?id=${currentBinId}`;
+                document.getElementById('shareLink').value = shareUrl;
+                
+                updateDatesSelection();
+                updateResults();
+            } catch (error) {
+                alert('Erreur lors de la création de l\'événement');
+                console.error(error);
+            } finally {
+                toggleLoading(false);
+            }
         }
 
         function updateDatesSelection() {
@@ -144,7 +264,7 @@
             `).join('');
         }
 
-        function submitParticipation() {
+        async function submitParticipation() {
             const name = document.getElementById('participantName').value.trim();
             if (!name) {
                 alert('Veuillez entrer votre nom');
@@ -174,8 +294,8 @@
                 });
             }
 
-            // Sauvegarder dans localStorage
-            localStorage.setItem('eventData', JSON.stringify(eventData));
+            // Mettre à jour l'événement sur le serveur
+            await updateEvent();
 
             // Réinitialiser le formulaire
             document.getElementById('participantName').value = '';
@@ -221,32 +341,15 @@
                         </div>
                     `).join('')}
                 </div>
-                <button type="button" onclick="resetEvent()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
-                    Réinitialiser l'événement
-                </button>
             `;
         }
 
-        function resetEvent() {
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser l\'événement ? Toutes les données seront perdues.')) {
-                localStorage.removeItem('eventData');
-                eventData = {
-                    title: '',
-                    dates: [],
-                    participants: []
-                };
-                document.getElementById('eventCreation').classList.remove('hidden');
-                document.getElementById('participation').classList.add('hidden');
-                document.getElementById('eventTitle').value = '';
-                document.getElementById('datesList').innerHTML = `
-                    <div class="flex space-x-2">
-                        <input type="datetime-local" class="dateInput mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
-                        <button type="button" onclick="removeDateInput(this)" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">×</button>
-                    </div>
-                `;
-                updateResults();
+        // Rafraîchir les données toutes les 30 secondes
+        setInterval(async () => {
+            if (currentBinId) {
+                await loadEvent(currentBinId);
             }
-        }
+        }, 30000);
     </script>
 </body>
 </html>
